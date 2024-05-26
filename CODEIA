@@ -1,0 +1,141 @@
+// import static org.junit.jupiter.api.Assertions.assertEquals;
+
+// import org.junit.jupiter.api.Test;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import org.apache.commons.validator.routines.CPFValidator;
+
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
+
+public class Trabalhador {
+        private String nome;
+        private double salarioBruto;
+        private double descontoINSS;
+        private int numeroDependentes;
+        private double valorTotalDescontos;
+        private String cpf;
+        private String cep;
+        private String enderecoCompleto;
+
+        public Trabalhador(String nome, double salarioBruto, double descontoINSS, int numeroDependentes, double valorTotalDescontos, String cpf, String cep) {
+            this.nome = nome;
+            this.salarioBruto = salarioBruto;
+            this.descontoINSS = descontoINSS;
+            this.numeroDependentes = numeroDependentes;
+            this.valorTotalDescontos = valorTotalDescontos;
+            this.cpf = cpf;
+            this.cep = cep;
+            this.enderecoCompleto = consultarEndereco(cep);
+        }
+
+        public double calcularIRRF() {
+            double baseCalculo = salarioBruto - descontoINSS - (numeroDependentes * 189.59) - valorTotalDescontos;
+            double irrf = 0.0;
+
+            if (baseCalculo <= 1903.98) {
+                irrf = 0.0;
+            } else if (baseCalculo <= 2826.65) {
+                irrf = (baseCalculo * 0.075) - 142.80;
+            } else if (baseCalculo <= 3751.05) {
+                irrf = (baseCalculo * 0.15) - 354.80;
+            } else if (baseCalculo <= 4664.68) {
+                irrf = (baseCalculo * 0.225) - 636.13;
+            } else {
+                irrf = (baseCalculo * 0.275) - 869.36;
+            }
+
+            return irrf;
+        }
+
+        public double calcularSalarioLiquido() {
+            return salarioBruto - descontoINSS - calcularIRRF();
+        }
+
+        public static boolean validarCPF(String cpf) {
+            CPFValidator validator = new CPFValidator();
+            return validator.isValid(cpf);
+        }
+
+        public static String consultarEndereco(String cep) {
+            String urlString = "https://viacep.com.br/ws/" + cep + "/json/";
+            try {
+                URL url = new URL(urlString);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String inputLine;
+                StringBuilder content = new StringBuilder();
+                while ((inputLine = in.readLine()) != null) {
+                    content.append(inputLine);
+                }
+                in.close();
+                conn.disconnect();
+                return content.toString();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return "Endereço não encontrado";
+            }
+        }
+
+        public void salvarDados() {
+            File file = new File("trabalhadores.txt");
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(file, true))) {
+                writer.write(this.toString());
+                writer.newLine();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "Nome: " + nome + ", Salário Bruto: " + salarioBruto + ", Desconto INSS: " + descontoINSS +
+                    ", Número de Dependentes: " + numeroDependentes + ", Valor Total Descontos: " + valorTotalDescontos +
+                    ", CPF: " + cpf + ", CEP: " + cep + ", Endereço Completo: " + enderecoCompleto +
+                    ", Salário Líquido: " + calcularSalarioLiquido();
+        }
+
+        public static void main(String[] args) {
+            Scanner scanner = new Scanner(System.in);
+
+            System.out.print("Nome: ");
+            String nome = scanner.nextLine();
+
+            System.out.print("Salário Bruto: ");
+            double salarioBruto = scanner.nextDouble();
+
+            System.out.print("Desconto do INSS: ");
+            double descontoINSS = scanner.nextDouble();
+
+            System.out.print("Número de Dependentes: ");
+            int numeroDependentes = scanner.nextInt();
+
+            System.out.print("Valor Total dos Descontos Cabíveis para Dedução de IRPF: ");
+            double valorTotalDescontos = scanner.nextDouble();
+
+            scanner.nextLine(); // Consumir a nova linha
+
+            System.out.print("CPF: ");
+            String cpf = scanner.nextLine();
+
+            if (!validarCPF(cpf)) {
+                System.out.println("CPF inválido!");
+                return;
+            }
+
+            System.out.print("CEP: ");
+            String cep = scanner.nextLine();
+
+            Trabalhador trabalhador = new Trabalhador(nome, salarioBruto, descontoINSS, numeroDependentes, valorTotalDescontos, cpf, cep);
+            trabalhador.salvarDados();
+
+            System.out.println("Dados salvos com sucesso!");
+            System.out.println(trabalhador);
+        }
+    }
+
+  }
